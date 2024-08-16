@@ -11,6 +11,7 @@ class Minimax : public Sprite2D {
 private:
 	unsigned long long int ZobristTable[8][8][12];
 	std::mt19937 mt(01234567);
+	unordered_map<char, float> piece_value;
 
 protected:
 	static void _bind_methods();
@@ -31,6 +32,7 @@ class Square{
 public:
 	int x;
 	int y;
+	Square();
 	Square(const int p_x, const int p_y);
 	Square operator=(const Square &p_sq);
 };
@@ -38,6 +40,8 @@ public:
 class Move{
 	Square sq1;
 	Square sq2;
+	char promotion;
+	Move();
 	Move(const Square &p_sq1, const Square &p_sq2);
 	Move operator=(const Move &p_mv);
 };
