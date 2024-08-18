@@ -7,12 +7,12 @@ int main(){
     char pawns[9] = "PPPPPPPP";
     for (int i=0;i<8;i++){
         board[i][0] = pieces[i];
-        board[i][3] = pawns[i];
+        board[i][1] = pawns[i];
         board[i][2] = '0';
-        board[i][1] = '0';
-        board[i][6] = '0';
+        board[i][3] = '0';
+        board[i][4] = '0';
         board[i][5] = '0';
-        board[i][4] = pawns[i] + 32;
+        board[i][6] = pawns[i] + 32;
         board[i][7] = pieces[i] + 32;
     }
     Minimax engine; 
@@ -28,12 +28,15 @@ int main(){
     // std::cout << engine.isValidMove(board, moves[0], true);
     // std::cout << engine.inCheck(board, true);
 
-    Move ret = engine.findBest(board, true, 4);
+    Move ret = engine.findBest(board, true, 2);
     // std::cout << "(" << char(ret.sq1.x + 97) << "," << ret.sq1.y+1 << ") -> (" << char(ret.sq2.x + 97) << "," << ret.sq2.y+1 << ")\n";
 
-    for (Move mv : moves){
-        mv.printMove();
-    }
+    // for (Move mv : moves){
+    //     mv.printMove();
+    // }
+    std::cout << "Boards generated:" << engine.num_boards << std::endl;
+    std::cout << "Hash Matches:" << engine.hashes_found << std::endl;
+    Move("d2d4").printMove();
         
     return 0;
 }

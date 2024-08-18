@@ -1,6 +1,7 @@
 #include "minimax.h"
 // #include <godot_cpp/core/class_db.hpp>
 #include <iostream>
+#include <cmath>
 
 // using namespace godot;
 
@@ -14,6 +15,8 @@
 // }
 
 Minimax::Minimax() {
+	num_boards = 0;
+	hashes_found = 0;
 	// Initialize any variables here.
 	initTable();
 	piece_value['P'] = 1;
@@ -30,6 +33,8 @@ Minimax::Minimax() {
 	piece_value['k'] = -10000;
 	piece_value['0'] = 0;
 	mt.seed(8675309); // Jenny Jenny
+
+
 }
 
 Minimax::~Minimax() {
@@ -52,26 +57,30 @@ Move Minimax::findBest(char board[8][8], bool turn, unsigned int depth){
 	//hash table for zobrist hashing
 	std::unordered_map<unsigned long long int, float> zobrist;
 	
+	// std::cout << "here" << std::endl;
+
 	//Generate all moves, with attacks first
 	std::vector<Move> all_moves = generateAttacks(board,turn);
 	std::vector<Move> moves = generateMoves(board,turn);
 
-	std::cout << "initial length=" << all_moves.size() << std::endl;
+	// std::cout << "initial length=" << all_moves.size() << std::endl;
+
 	all_moves.insert(all_moves.end(), moves.begin(), moves.end());
 
-	std::cout << "initial length=" << all_moves.size() << std::endl;
+	// std::cout << "initial length=" << all_moves.size() << std::endl;
 
 	float best_val = (turn) ? -INFINITY : INFINITY;
 	Move best_move;
-	int n = 0;
+
 	for (Move& mv : all_moves){
+		num_boards++;
 		//Make the move
 		char target = board[mv.sq2.x][mv.sq2.y]; //Holds what is on the target square
 		board[mv.sq2.x][mv.sq2.y] = (mv.promotion) ? mv.promotion : board[mv.sq1.x][mv.sq1.y]; //If a promotion, promote the piece
 		board[mv.sq1.x][mv.sq1.y] = '0';
 
 		float val = abMinimax(board, depth-1, !turn, -INFINITY, INFINITY, zobrist);
-		std::cout << ++n << std::endl; 
+
 		//Undo the move
 		board[mv.sq1.x][mv.sq1.y] = (mv.promotion) ? (turn ? 'P' : 'p') : board[mv.sq2.x][mv.sq2.y]; //If a promotion, turn the piece back into a pawn
 		board[mv.sq2.x][mv.sq2.y] = target;
@@ -87,6 +96,7 @@ Move Minimax::findBest(char board[8][8], bool turn, unsigned int depth){
 
 //minimax with ab pruning, and a fixed depth
 float Minimax::abMinimax(char board[8][8], unsigned int depth, bool turn, float alpha, float beta, std::unordered_map<unsigned long long int, float> &zobrist){
+	// std::cout << "depth:" << depth << std::endl;
 	if (depth == 0){
 		return abMinimaxAttacks(board, !turn, -INFINITY, INFINITY, zobrist);
 	}else{
@@ -95,40 +105,42 @@ float Minimax::abMinimax(char board[8][8], unsigned int depth, bool turn, float 
 		std::vector<Move> all_moves = generateAttacks(board,turn);
 		std::vector<Move> moves = generateMoves(board,turn);
 		all_moves.insert(all_moves.end(), moves.begin(), moves.end());
-
-		std::cout << "num:" << all_moves.size() << std::endl;
-
+		num_boards += all_moves.size();
+		if (all_moves.empty()){
+			return best_val; //(turn) ? -INFINITY : INFINITY
+		}
 		for (Move& mv : all_moves){
 			//Make the move
 			char target = board[mv.sq2.x][mv.sq2.y]; //Holds what is on the target square
 			board[mv.sq2.x][mv.sq2.y] = (mv.promotion) ? mv.promotion : board[mv.sq1.x][mv.sq1.y]; //If a promotion, promote the piece
 			board[mv.sq1.x][mv.sq1.y] = '0';
 
-			printBoard(board);
-
 			//Find the hash value for the board
 			unsigned long long int hash = computeHash(board);
 
-			std::cout << "hash:" << hash << std::endl;
+			// Iterator
+			auto it = zobrist.find(hash);
 
 			//If the board position has been seen before, its key will exist 
-			if (zobrist.find(hash) == zobrist.end()){
-				std::cout << "hash not found" << std::endl;
-			}else{
-				std::cout << "hash found" << std::endl;
-				return zobrist[hash];
+			if (it != zobrist.end()){
+				// std::cout << "hash found" << std::endl;
+				// std::cout << "hash:" << hash << std::endl;
+				// printBoard(board);
+				hashes_found++;
+				//If key does exist, undo the move and return its value
+				board[mv.sq1.x][mv.sq1.y] = (mv.promotion) ? (turn ? 'P' : 'p') : board[mv.sq2.x][mv.sq2.y]; //If a promotion, turn the piece back into a pawn
+				board[mv.sq2.x][mv.sq2.y] = target;
+				return it->second;
 			}
 
-			std::cout << "hash passed" << std::endl;
-
 			float val = abMinimax(board, depth-1, !turn, alpha, beta, zobrist);
-
-			//Add the board 
-			zobrist[hash] = val;
 
 			//Undo the move
 			board[mv.sq1.x][mv.sq1.y] = (mv.promotion) ? (turn ? 'P' : 'p') : board[mv.sq2.x][mv.sq2.y]; //If a promotion, turn the piece back into a pawn
 			board[mv.sq2.x][mv.sq2.y] = target;
+
+			//Add the board to hashtable if not there already
+			zobrist[hash] = val;
 
 			//Update best_val and alpha/beta
 			if (turn){
@@ -148,12 +160,14 @@ float Minimax::abMinimax(char board[8][8], unsigned int depth, bool turn, float 
 
 //minimax with ab pruning, but it only calculates captures (attacks), and doesn't have a fixed depth
 float Minimax::abMinimaxAttacks(char board[8][8], bool turn, float alpha, float beta, std::unordered_map<unsigned long long int, float> &zobrist){
+	// std::cout << "attacks called" << std::endl;
 	std::vector<Move> attacks = generateAttacks(board, turn);
+	// std::cout << attacks.size() << std::endl;
 	if (attacks.empty()){
-		return eval(board);
+		std::vector<Move> moves = generateMoves(board, turn);
+		return moves.empty() ? (turn ? -INFINITY : INFINITY) : eval(board);
 	}else{
 		float best_val = (turn) ? -INFINITY : INFINITY;
-		//The attacks will be looked through first, should be faster due to AB pruning
 
 		for (Move& mv : attacks){
 			//Make the move
@@ -164,19 +178,30 @@ float Minimax::abMinimaxAttacks(char board[8][8], bool turn, float alpha, float 
 			//Find the hash value for the board
 			unsigned long long int hash = computeHash(board);
 
+			// Iterator
+			auto it = zobrist.find(hash);
+
 			//If the board position has been seen before, its key will exist 
-			if (zobrist.find(hash) != zobrist.end()){
-				return zobrist[hash];
+			if (it != zobrist.end()){
+				// std::cout << "hash found" << std::endl;
+				// std::cout << "hash:" << hash << std::endl;
+				// printBoard(board);
+				hashes_found++;
+				//If key does exist, undo the move and return its value
+				board[mv.sq1.x][mv.sq1.y] = (mv.promotion) ? (turn ? 'P' : 'p') : board[mv.sq2.x][mv.sq2.y]; //If a promotion, turn the piece back into a pawn
+				board[mv.sq2.x][mv.sq2.y] = target;
+				return it->second;
 			}
 
+			//if key doesn't exist
 			float val = abMinimaxAttacks(board, !turn, alpha, beta, zobrist);
-
-			//Add the board 
-			zobrist[hash] = val;
 
 			//Undo the move
 			board[mv.sq1.x][mv.sq1.y] = (mv.promotion) ? (turn ? 'P' : 'p') : board[mv.sq2.x][mv.sq2.y]; //If a promotion, turn the piece back into a pawn
 			board[mv.sq2.x][mv.sq2.y] = target;
+
+			//Add the board
+			zobrist[hash] = val;
 
 			//Update best_val and alpha/beta
 			if (turn){
@@ -197,9 +222,29 @@ float Minimax::abMinimaxAttacks(char board[8][8], bool turn, float alpha, float 
 // Static board evaluation
 float Minimax::eval(const char board[8][8]){
 	float count = 0;
+	float val;
 	for (int i=0;i<8;i++){
 		for (int j=0;j<8;j++){
-			count += piece_value[board[i][j]];
+			val = piece_value[board[i][j]];
+			if (board[i][j] == 'P'){
+				val *= pow(1.05,(j-1));
+			}else if (board[i][j] == 'p'){
+				val *= pow(1.05,(6-j));
+			}else{
+				if (i >= 2 && i <= 5){
+					val *= 1.05;
+				}
+				if (i >= 3 && i <= 4){
+					val *= 1.05;
+				}
+				if (j >= 2 && j <= 5){
+					val *= 1.05;
+				}
+				if (j >= 3 && j <= 4){
+					val *= 1.05;
+				}
+			}
+			count += val;
 		}
 	}
 	return count;
@@ -280,14 +325,7 @@ bool Minimax::tryAddAttack(char board[8][8], const Move &mv, const bool turn, st
 	if (mv.sq2.x > 7 || mv.sq2.x < 0 || mv.sq2.y > 7 || mv.sq2.y < 0){
 		return false;
 	}
-	if(board[mv.sq2.x][mv.sq2.y] == '0'){
-		return false;
-	}
-	// If the target piece is the same color as whose turn it is, return false
-	if (isUpper(board[mv.sq2.x][mv.sq2.y]) == turn){
-		return false;
-	}
-	if (isValidMove(board,mv,turn)){
+	if (isValidMove(board,mv,turn) && isLower(board[mv.sq2.x][mv.sq2.y]) == turn){ 
 		attacks.push_back(Move(mv));
 		return true;
 	}
@@ -303,7 +341,8 @@ bool Minimax::isValidMove(char board[8][8], const Move &mv, const bool turn){
 
 	bool valid = (inCheck(board, turn)) ? false : true;
 
-	board[mv.sq1.x][mv.sq1.y] = board[mv.sq2.x][mv.sq2.y];
+	//Undo the move
+	board[mv.sq1.x][mv.sq1.y] = (mv.promotion) ? (turn ? 'P' : 'p') : board[mv.sq2.x][mv.sq2.y]; //If a promotion, turn the piece back into a pawn
 	board[mv.sq2.x][mv.sq2.y] = target;
 
 	return valid;
@@ -413,6 +452,7 @@ std::vector<Move> Minimax::generateAttacks(char board[8][8], const bool turn){
 
 // Adds legal pawn moves to `moves` vector 
 void Minimax::generatePawnMove(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &moves){
+	// std::cout << "Pawn move called" << std::endl;
 	Square target_sq(sq); //Temporary target square for move
 	int dir = (turn) ? 1 : -1; //Direction pawn is moving (white moves +, black moves -)
 	const char *promotions = (turn) ? "QNRB" : "qnrb";
@@ -436,6 +476,7 @@ void Minimax::generatePawnMove(char board[8][8], const Square &sq, const bool tu
 
 // Adds legal pawn attacks to `attacks` vector
 void Minimax::generatePawnAttack(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &attacks){
+	// std::cout << "Pawn attack called" << std::endl;
 	Square target_sq(sq); //Temporary target square for move
 	int dir = (turn) ? 1 : -1; //Direction pawn is moving (white moves +, black moves -)
 	const char *promotions = (turn) ? "QNRB" : "qnrb";
@@ -474,6 +515,7 @@ void Minimax::generatePawnAttack(char board[8][8], const Square &sq, const bool 
 
 // Adds legal knight moves to `moves` vector
 void Minimax::generateKnightMove(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &moves){
+	// std::cout << "knight move called" << std::endl;
 	Square targets[8] = {Square(sq.x - 2, sq.y + 1), Square(sq.x - 2, sq.y - 1), Square(sq.x - 1, sq.y + 2), Square(sq.x - 1, sq.y - 2), Square(sq.x + 2, sq.y + 1), Square(sq.x + 2, sq.y - 1), Square(sq.x + 1, sq.y + 2), Square(sq.x + 1, sq.y - 2)};
 	for (int i=0;i<8;i++){
 		tryAddMove(board, Move(sq, targets[i], 0), turn, moves);
@@ -482,6 +524,7 @@ void Minimax::generateKnightMove(char board[8][8], const Square &sq, const bool 
 
 // Adds legal knight attacks to `attacks` vector
 void Minimax::generateKnightAttack(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &attacks){
+	// std::cout << "Knight attack called" << std::endl;
 	Square targets[8] = {Square(sq.x - 2, sq.y + 1), Square(sq.x - 2, sq.y - 1), Square(sq.x - 1, sq.y + 2), Square(sq.x - 1, sq.y - 2), Square(sq.x + 2, sq.y + 1), Square(sq.x + 2, sq.y - 1), Square(sq.x + 1, sq.y + 2), Square(sq.x + 1, sq.y - 2)};
 	for (int i=0;i<8;i++){
 		tryAddAttack(board, Move(sq, targets[i], 0), turn, attacks);
@@ -490,12 +533,13 @@ void Minimax::generateKnightAttack(char board[8][8], const Square &sq, const boo
 
 // Adds legal bishop moves to `moves` vector
 void Minimax::generateBishopMove(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &moves){
+	// std::cout << "Bishop move called" << std::endl;
 	Square dirs[4] = {Square(1, 1), Square(-1, 1), Square(1, -1), Square(-1,-1)};
 	Square target;
 	for (int i=0;i<4;i++){
 		target = dirs[i] + sq;
 		while (true){
-			if(!tryAddMove(board, Move(sq, dirs[i], 0), turn, moves)){
+			if(!tryAddMove(board, Move(sq, target, 0), turn, moves)){
 				break;
 			}
 			target = target + dirs[i];
@@ -505,6 +549,7 @@ void Minimax::generateBishopMove(char board[8][8], const Square &sq, const bool 
 
 // Adds legal bishop attacks to `attacks` vector
 void Minimax::generateBishopAttack(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &attacks){
+	// std::cout << "Bishop attack called" << std::endl;
 	Square dirs[4] = {Square(1, 1), Square(-1, 1), Square(1, -1), Square(-1,-1)};
 	Square target;
 	for (int i=0;i<4;i++){
@@ -516,6 +561,7 @@ void Minimax::generateBishopAttack(char board[8][8], const Square &sq, const boo
 				target = target + dirs[i];
 			}else{
 				tryAddAttack(board, Move(sq, target, 0), turn, attacks);
+				break;
 			}
 		}
 	}
@@ -523,12 +569,13 @@ void Minimax::generateBishopAttack(char board[8][8], const Square &sq, const boo
 
 // Adds legal rook moves to `moves` vector
 void Minimax::generateRookMove(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &moves){
+	// std::cout << "Rook move called" << std::endl;
 	Square dirs[4] = {Square(1, 0), Square(-1, 0), Square(0, -1), Square(0, 1)};
 	Square target;
 	for (int i=0;i<4;i++){
 		target = dirs[i] + sq;
 		while (true){
-			if(!tryAddMove(board, Move(sq, dirs[i], 0), turn, moves)){
+			if(!tryAddMove(board, Move(sq, target, 0), turn, moves)){
 				break;
 			}
 			target = target + dirs[i];
@@ -538,6 +585,7 @@ void Minimax::generateRookMove(char board[8][8], const Square &sq, const bool tu
 
 // Adds legal rook attacks `attacks` vector
 void Minimax::generateRookAttack(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &attacks){
+	// std::cout << "Rook attack called" << std::endl;
 	Square dirs[4] = {Square(1, 0), Square(-1, 0), Square(0, -1), Square(0, 1)};
 	Square target;
 	for (int i=0;i<4;i++){
@@ -549,6 +597,7 @@ void Minimax::generateRookAttack(char board[8][8], const Square &sq, const bool 
 				target = target + dirs[i];
 			}else{
 				tryAddAttack(board, Move(sq, target, 0), turn, attacks);
+				break;
 			}
 		}
 	}
@@ -556,12 +605,13 @@ void Minimax::generateRookAttack(char board[8][8], const Square &sq, const bool 
 
 // Adds legal queen moves to `moves` vector
 void Minimax::generateQueenMove(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &moves){
+	// std::cout << "Queen move called" << std::endl;
 	Square dirs[8] = {Square(1, 0), Square(-1, 0), Square(0, -1), Square(0, 1), Square(1, 1), Square(-1, 1), Square(1, -1), Square(-1,-1)};
 	Square target;
 	for (int i=0;i<8;i++){
 		target = dirs[i] + sq;
 		while (true){
-			if(!tryAddMove(board, Move(sq, dirs[i], 0), turn, moves)){
+			if(!tryAddMove(board, Move(sq, target, 0), turn, moves)){
 				break;
 			}
 			target = target + dirs[i];
@@ -571,6 +621,7 @@ void Minimax::generateQueenMove(char board[8][8], const Square &sq, const bool t
 
 // Adds legal queen attacks to `attacks` vector
 void Minimax::generateQueenAttack(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &attacks){
+	// std::cout << "Queen attack called" << std::endl;
 	Square dirs[8] = {Square(1, 0), Square(-1, 0), Square(0, -1), Square(0, 1), Square(1, 1), Square(-1, 1), Square(1, -1), Square(-1,-1)};
 	Square target;
 	for (int i=0;i<8;i++){
@@ -582,6 +633,7 @@ void Minimax::generateQueenAttack(char board[8][8], const Square &sq, const bool
 				target = target + dirs[i];
 			}else{
 				tryAddAttack(board, Move(sq, target, 0), turn, attacks);
+				break;
 			}
 		}
 	}
@@ -589,6 +641,7 @@ void Minimax::generateQueenAttack(char board[8][8], const Square &sq, const bool
 
 // Adds legal king moves to `moves` vector
 void Minimax::generateKingMove(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &moves){
+	// std::cout << "King move called" << std::endl;
 	Square targets[8] = {Square(sq.x - 1, sq.y - 1), Square(sq.x - 1, sq.y), Square(sq.x - 1, sq.y + 1), Square(sq.x, sq.y - 1), Square(sq.x, sq.y + 1), Square(sq.x + 1, sq.y - 1), Square(sq.x + 1, sq.y), Square(sq.x + 1, sq.y + 1)};
 	for (int i=0;i<8;i++){
 		tryAddMove(board, Move(sq, targets[i], 0), turn, moves);
@@ -597,6 +650,7 @@ void Minimax::generateKingMove(char board[8][8], const Square &sq, const bool tu
 
 // Adds legal king attacks to `attacks` vector
 void Minimax::generateKingAttack(char board[8][8], const Square &sq, const bool turn, std::vector<Move> &attacks){
+	// std::cout << "King attack called" << std::endl;
 	Square targets[8] = {Square(sq.x - 1, sq.y - 1), Square(sq.x - 1, sq.y), Square(sq.x - 1, sq.y + 1), Square(sq.x, sq.y - 1), Square(sq.x, sq.y + 1), Square(sq.x + 1, sq.y - 1), Square(sq.x + 1, sq.y), Square(sq.x + 1, sq.y + 1)};
 	for (int i=0;i<8;i++){
 		tryAddAttack(board, Move(sq, targets[i], 0), turn, attacks);
@@ -618,14 +672,14 @@ bool Minimax::inCheck(const char board[8][8], const bool turn){
 			}else if (isUpper(board[target.x][target.y]) == turn){
 				break;
 			}else{ // Target piece must be a different color than `turn`
-				if (dirs[i].x == 0 || dirs[i].y == 0){
-					if((board[target.x][target.y] == 'B' + offset) || (board[target.x][target.y] == 'Q' + offset)){
+				if (i < 4){
+					if((board[target.x][target.y] == 'R' + offset) || (board[target.x][target.y] == 'Q' + offset)){
 						return true;
 					}else{
 						break;
 					}
 				}else{
-					if((board[target.x][target.y] == 'R' + offset) || (board[target.x][target.y] == 'Q' + offset)){
+					if((board[target.x][target.y] == 'B' + offset) || (board[target.x][target.y] == 'Q' + offset)){
 						return true;	
 					}else{
 						break;
@@ -688,6 +742,11 @@ Move::Move(const Square &p_sq1, const Square &p_sq2, char p_promotion){
 	promotion = p_promotion;
 }
 
+Move::Move(const char *move){
+	sq1 = Square(move[0] - 'a', move[1] - '0');
+	sq2 = Square(move[2] - 'a', move[3] - '0');
+}
+
 //Summary: Assignment operator for the move class
 //Parameters
 //param1(TYPE:const Move reference, PURPOSE:Move to be copied, EX: Move(sqaure1, square2) is the piece on square1 moves to square2) 
@@ -736,7 +795,5 @@ Square Square::operator=(const Square &p_sq){
 //param1(TYPE:const Square reference, PURPOSE:Square that will be added, EX: Square(3,1) is d2 )
 //Usage: newSq += oldSq
 Square Square::operator+(const Square &p_sq){
-	x += p_sq.x;
-	y += p_sq.y;
-	return *this;
+	return Square(x+p_sq.x, y+p_sq.y);
 }

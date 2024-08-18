@@ -28,8 +28,10 @@ public:
 	char promotion;
 	Move();
 	Move(const Square &p_sq1, const Square &p_sq2, char p_promotion);
+	Move(const char *move);
 	Move operator=(const Move &p_mv);
 	void printMove();
+	Move stringToMove(const char *move);
 };
 
 class Minimax{
@@ -40,6 +42,8 @@ private:
 
 // protected:
 public:
+	unsigned int num_boards;
+	unsigned int hashes_found;
 	// static void _bind_methods();
 	void printBoard(const char board[8][8]);
 	Square findKing(const char board[8][8], const bool turn);
