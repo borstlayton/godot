@@ -96,8 +96,8 @@ Move Minimax::findBest(char board[8][8], bool turn, unsigned int depth){
 float Minimax::abMinimax(char board[8][8], unsigned int depth, bool turn, float alpha, float beta, std::unordered_map<unsigned long long int, float> &zobrist){
 	// std::cout << "depth:" << depth << std::endl;
 	if (depth == 0){
-		return eval(board);
-		// return abMinimaxAttacks(board, !turn, alpha, beta, zobrist);
+		// return eval(board);
+		return abMinimaxAttacks(board, turn, alpha, beta, zobrist);
 	}else{
 		//The attacks will be looked through first, should be faster due to AB pruning
 		std::vector<Move> all_moves = generateAttacks(board,turn);
@@ -183,8 +183,8 @@ float Minimax::abMinimaxAttacks(char board[8][8], bool turn, float alpha, float 
 	if (attacks.empty()){
 		std::vector<Move> moves = generateMoves(board, turn);
 		if (moves.empty()){
-			std::cout << "No Legal Moves\n";
-			printBoard(board);
+			// std::cout << "No Legal Moves\n";
+			// printBoard(board);
 			return (turn) ? -INFINITY : INFINITY;
 		}else{
 			return curr_eval;
@@ -194,6 +194,7 @@ float Minimax::abMinimaxAttacks(char board[8][8], bool turn, float alpha, float 
 		float best_val = (turn) ? -INFINITY : INFINITY;
 
 		for (Move& mv : attacks){
+			num_boards++;
 			//Make the move
 			// std::cout << "MM Attack:";
 			// mv.printMove();

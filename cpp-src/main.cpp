@@ -5,8 +5,8 @@ int main(){
     char board[8][8];
     char pieces[9] = "RNBQKBNR";
     char pawnsW[9] = "PPPPPPPP";
-    char pawnsB[9] = "ppp000pp";
-    char row3[9] = "Q0000000";
+    char pawnsB[9] = "pppppppp";
+    char row3[9] = "00000000";
     char row4[9] = "00000000";
     for (int i=0;i<8;i++){
         board[i][0] = pieces[i];
@@ -38,8 +38,8 @@ int main(){
     //     mv.printMove();
     // }
     Minimax engine; 
-    Move ret = engine.findBest(board, false, 8);
-    std::cout << "Boards generated:" << engine.num_boards << std::endl;
+    Move ret = engine.findBest(board, true, 8);
+    std::cout << "Boards searched:" << engine.num_boards << std::endl;
     std::cout << "Hash Matches:" << engine.hashes_found << std::endl;
     std::cout << "Best Move:"; 
     ret.printMove();
