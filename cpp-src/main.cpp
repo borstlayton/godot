@@ -4,18 +4,20 @@
 int main(){
     char board[8][8];
     char pieces[9] = "RNBQKBNR";
-    char pawns[9] = "PPPPPPPP";
+    char pawnsW[9] = "PPPPPPPP";
+    char pawnsB[9] = "ppp000pp";
+    char row3[9] = "Q0000000";
+    char row4[9] = "00000000";
     for (int i=0;i<8;i++){
         board[i][0] = pieces[i];
-        board[i][1] = pawns[i];
+        board[i][1] = pawnsW[i];
         board[i][2] = '0';
-        board[i][3] = '0';
-        board[i][4] = '0';
+        board[i][3] = row3[i];
+        board[i][4] = row4[i];
         board[i][5] = '0';
-        board[i][6] = pawns[i] + 32;
+        board[i][6] = pawnsB[i];
         board[i][7] = pieces[i] + 32;
     }
-    Minimax engine; 
 
     // Move ret = engine.findBest(board, true, 4);
     // std::vector<Move> moves = engine.generateAttacks(board,true);
@@ -27,16 +29,37 @@ int main(){
 
     // std::cout << engine.isValidMove(board, moves[0], true);
     // std::cout << engine.inCheck(board, true);
+    
 
-    Move ret = engine.findBest(board, true, 2);
+    
     // std::cout << "(" << char(ret.sq1.x + 97) << "," << ret.sq1.y+1 << ") -> (" << char(ret.sq2.x + 97) << "," << ret.sq2.y+1 << ")\n";
 
     // for (Move mv : moves){
     //     mv.printMove();
     // }
+    Minimax engine; 
+    Move ret = engine.findBest(board, false, 8);
     std::cout << "Boards generated:" << engine.num_boards << std::endl;
     std::cout << "Hash Matches:" << engine.hashes_found << std::endl;
-    Move("d2d4").printMove();
+    std::cout << "Best Move:"; 
+    ret.printMove();
+    
+    // bool tf = engine.inCheck(board, false);
+    // std::cout << "Check:" << tf << std::endl; 
+    // engine.printBoard(board);
+    // std::vector<Move> my = engine.generateMoves(board, false);
+    // std::cout << "Moves:\n";
+    // for(Move &mv : my){
+    //     mv.printMove();
+    // }
+
+    // std::cout << "Attacks:\n";
+    // std::vector<Move> att = engine.generateAttacks(board, false);
+    // for(Move &mv : att){
+    //     mv.printMove();
+    // }
+
+    // Move("d2d4").printMove();
         
     return 0;
 }

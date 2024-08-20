@@ -17,8 +17,9 @@ public:
 	int y;
 	Square();
 	Square(const int &p_x, const int &p_y);
-	Square operator+(const Square &p_sq);
+	Square operator+(const Square &p_sq) const;
 	Square operator=(const Square &p_sq);
+	bool operator==(const Square &p_sq) const;
 };
 
 class Move{
@@ -30,7 +31,7 @@ public:
 	Move(const Square &p_sq1, const Square &p_sq2, char p_promotion);
 	Move(const char *move);
 	Move operator=(const Move &p_mv);
-	void printMove();
+	void printMove() const;
 	Move stringToMove(const char *move);
 };
 
